@@ -87,7 +87,7 @@ function step() {
     return;
   }
   angle += angVel;
-  angVel *= 0.985;
+  angVel *= 0.91;
   if (angVel < 0.002) {
     angVel = 0;
     spinning = false;
@@ -131,7 +131,7 @@ function spin() {
     return;
   }
   angle = rand(0, PI2);
-  angVel = rand(0.25, 0.5);
+  angVel = rand(0.1, 0.4);
   spinning = true;
   statusEl.textContent = "Đang quay...";
   requestAnimationFrame(step);
