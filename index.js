@@ -87,7 +87,7 @@ function step() {
     return;
   }
   angle += angVel;
-  angVel *= 0.95;
+  angVel *= 0.985;
   if (angVel < 0.002) {
     angVel = 0;
     spinning = false;
