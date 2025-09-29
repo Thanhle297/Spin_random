@@ -8,6 +8,7 @@ const overlay = byId("overlay");
 const winnerText = byId("winnerText");
 const wheel = byId("wheel");
 const ctx = wheel.getContext("2d");
+
 const sample = [
   "Trắc nghiệm",
   "Vấn đáp",
@@ -18,12 +19,37 @@ const sample = [
   "Quà bí ẩn",
 ];
 itemsEl.value = sample.join("\n");
+
 let items = [],
   angle = 0,
   angVel = 0,
   spinning = false,
   chosenIndex = -1;
 const removed = new Set();
+
+// ==== YouTube Player ====
+let player;
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player("player", {
+    height: "0",
+    width: "0",
+    videoId: "atq9S7pp1rQ", // ⚡ Thay ID nhạc YouTube tại đây (đây là nhạc xổ số)
+    playerVars: { autoplay: 0, controls: 0 },
+  });
+}
+function playMusic() {
+  if (player && player.playVideo) {
+    player.seekTo(0);
+    player.playVideo();
+  }
+}
+function stopMusic() {
+  if (player && player.pauseVideo) {
+    player.pauseVideo();
+  }
+}
+// =========================
+
 function parseItems() {
   items = itemsEl.value
     .split(/\r?\n/)
@@ -31,6 +57,7 @@ function parseItems() {
     .filter(Boolean)
     .filter((s, i, self) => self.indexOf(s) === i);
 }
+
 function drawWheel() {
   const W = wheel.width,
     H = wheel.height;
@@ -81,6 +108,7 @@ function drawWheel() {
   ctx.stroke();
   ctx.restore();
 }
+
 function step() {
   if (!spinning) {
     drawWheel();
@@ -97,6 +125,7 @@ function step() {
   drawWheel();
   requestAnimationFrame(step);
 }
+
 function currentIndex() {
   const n = items.length;
   if (!n) return -1;
@@ -105,11 +134,13 @@ function currentIndex() {
   const idx = Math.floor(a / step);
   return idx;
 }
+
 function onStop() {
   chosenIndex = currentIndex();
   const winner = items[chosenIndex];
   if (!winner) {
     statusEl.textContent = "Thiếu dữ liệu.";
+    stopMusic();
     return;
   }
   statusEl.textContent = `Trúng: ${winner}`;
@@ -117,7 +148,9 @@ function onStop() {
   if (noRepeatEl.checked) removed.add(winner);
   showOverlay();
   burstConfetti();
+  stopMusic(); // dừng nhạc khi dừng quay
 }
+
 function spin() {
   parseItems();
   const valid = items.filter((x) => !(noRepeatEl.checked && removed.has(x)));
@@ -134,8 +167,11 @@ function spin() {
   angVel = rand(0.25, 0.5);
   spinning = true;
   statusEl.textContent = "Đang quay...";
+  playMusic(); // phát nhạc khi quay
   requestAnimationFrame(step);
 }
+
+// ==== hiệu ứng confetti & overlay (giữ nguyên code cũ) ====
 const c = byId("confetti");
 const cctx = c.getContext("2d");
 function resize() {
@@ -145,6 +181,7 @@ function resize() {
 }
 addEventListener("resize", resize);
 resize();
+
 let confettis = [];
 function burstConfetti() {
   const N = 180;
@@ -187,6 +224,8 @@ function showOverlay() {
 function hideOverlay() {
   overlay.classList.remove("show");
 }
+// ==========================================================
+
 byId("btnSpin").addEventListener("click", spin);
 byId("btnSample").addEventListener("click", () => {
   const now = itemsEl.value.trim();
@@ -234,7 +273,6 @@ function handleFile(e) {
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-    // Bỏ dòng tiêu đề, duyệt từng dòng
     const values = rows
       .slice(1)
       .map((r) => {
