@@ -1,6 +1,7 @@
 const rand = (a, b) => Math.random() * (b - a) + a;
 const PI2 = Math.PI * 2;
 const byId = (id) => document.getElementById(id);
+
 const itemsEl = byId("items");
 const statusEl = byId("status");
 const noRepeatEl = byId("noRepeat");
@@ -9,19 +10,12 @@ const winnerText = byId("winnerText");
 const wheel = byId("wheel");
 const ctx = wheel.getContext("2d");
 
-const sample = [
-  "Trắc nghiệm",
-  "Vấn đáp",
-  "Thực hành",
-  "Bốc thăm",
-  "Nộp bài sớm",
-  "Cộng điểm",
-  "Quà bí ẩn",
-];
+const sample = ["Trắc nghiệm", "Vấn đáp", "Thực hành", "Bốc thăm"];
 itemsEl.value = sample.join("\n");
 
-let items = [],
-  angle = 0,
+let items = []; // chỉ chứa MSV để hiển thị trên bánh xe
+let fullInfo = []; // chứa thông tin đầy đủ (MSV + họ tên) để hiển thị khi trúng
+let angle = 0,
   angVel = 0,
   spinning = false,
   chosenIndex = -1;
@@ -33,7 +27,7 @@ function onYouTubeIframeAPIReady() {
   player = new YT.Player("player", {
     height: "0",
     width: "0",
-    videoId: "atq9S7pp1rQ", // ⚡ Thay ID nhạc YouTube tại đây (đây là nhạc xổ số)
+    videoId: "atq9S7pp1rQ", // ⚡ thay ID nhạc YouTube
     playerVars: { autoplay: 0, controls: 0 },
   });
 }
@@ -68,13 +62,16 @@ function drawWheel() {
   ctx.rotate(angle);
   const n = Math.max(items.length, 1);
   const step = PI2 / n;
+
   for (let i = 0; i < n; i++) {
     const start = i * step;
     const end = start + step;
     const hue = ((i * 360) / n + 40) % 360;
+
     ctx.fillStyle = `hsl(${hue}deg 75% 55% / 0.95)`;
     if (noRepeatEl.checked && removed.has(items[i]))
       ctx.fillStyle = `hsl(${hue}deg 10% 30% / 0.6)`;
+
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, R, start, end);
@@ -83,6 +80,7 @@ function drawWheel() {
     ctx.lineWidth = 4;
     ctx.strokeStyle = "#0b1324";
     ctx.stroke();
+
     ctx.save();
     ctx.fillStyle = "#0b1324";
     ctx.font = `${Math.max(
@@ -99,6 +97,7 @@ function drawWheel() {
     ctx.fillText(items[i] || "—", 0, 0);
     ctx.restore();
   }
+
   ctx.beginPath();
   ctx.fillStyle = "#e2e8f0";
   ctx.arc(0, 0, R * 0.12, 0, PI2);
@@ -115,7 +114,7 @@ function step() {
     return;
   }
   angle += angVel;
-  angVel *= 0.98;
+  angVel *= 0.95;
   if (angVel < 0.002) {
     angVel = 0;
     spinning = false;
@@ -131,24 +130,24 @@ function currentIndex() {
   if (!n) return -1;
   const a = ((-angle % PI2) + PI2) % PI2;
   const step = PI2 / n;
-  const idx = Math.floor(a / step);
-  return idx;
+  return Math.floor(a / step);
 }
 
 function onStop() {
   chosenIndex = currentIndex();
   const winner = items[chosenIndex];
+  const winnerFull = fullInfo[chosenIndex];
   if (!winner) {
     statusEl.textContent = "Thiếu dữ liệu.";
     stopMusic();
     return;
   }
-  statusEl.textContent = `Trúng: ${winner}`;
-  winnerText.textContent = winner;
+  statusEl.textContent = `Trúng: ${winnerFull || winner}`;
+  winnerText.textContent = winnerFull || winner;
   if (noRepeatEl.checked) removed.add(winner);
   showOverlay();
   burstConfetti();
-  stopMusic(); // dừng nhạc khi dừng quay
+  stopMusic();
 }
 
 function spin() {
@@ -164,14 +163,14 @@ function spin() {
     return;
   }
   angle = rand(0, PI2);
-  angVel = rand(0.25, 0.4);
+  angVel = rand(0.25, 0.5);
   spinning = true;
   statusEl.textContent = "Đang quay...";
-  playMusic(); // phát nhạc khi quay
+  playMusic();
   requestAnimationFrame(step);
 }
 
-// ==== hiệu ứng confetti & overlay (giữ nguyên code cũ) ====
+// ==== confetti & overlay ====
 const c = byId("confetti");
 const cctx = c.getContext("2d");
 function resize() {
@@ -206,9 +205,7 @@ function animateConfetti() {
     p.x += p.vx;
     p.y += p.vy;
     p.r += p.rv;
-    if (p.y < c.height + 40) {
-      alive = true;
-    }
+    if (p.y < c.height + 40) alive = true;
     cctx.save();
     cctx.translate(p.x, p.y);
     cctx.rotate(p.r);
@@ -224,16 +221,9 @@ function showOverlay() {
 function hideOverlay() {
   overlay.classList.remove("show");
 }
-// ==========================================================
+// ============================
 
 byId("btnSpin").addEventListener("click", spin);
-byId("btnSample").addEventListener("click", () => {
-  const now = itemsEl.value.trim();
-  const add = sample.filter((s) => !now.includes(s)).join("\n");
-  itemsEl.value = (now ? now + "\n" : "") + add;
-  parseItems();
-  drawWheel();
-});
 byId("btnClear").addEventListener("click", () => {
   itemsEl.value = "";
   parseItems();
@@ -259,7 +249,7 @@ overlay.addEventListener("click", (e) => {
 });
 document.querySelector(".pin").addEventListener("click", spin);
 
-// Excel import
+// ==== Import Excel ====
 document
   .getElementById("excelFile")
   .addEventListener("change", handleFile, false);
@@ -273,16 +263,21 @@ function handleFile(e) {
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    fullInfo = [];
     const values = rows
       .slice(1)
       .map((r) => {
-        const stt = r[0] || "";
+        const stt = r[0] ||"";
         const msv = r[1] || "";
         const hoLot = r[2] || "";
         const ten = r[3] || "";
-        return `${stt} - ${msv} - ${hoLot} ${ten}`.trim();
+        if (!msv) return "";
+        fullInfo.push(`${stt} - ${msv} - ${hoLot} ${ten}`.trim()); // hiển thị khi trúng
+        return `${msv}`.trim(); // chỉ MSV trên vòng quay
       })
       .filter(Boolean);
+
     itemsEl.value = values.join("\n");
     parseItems();
     drawWheel();
